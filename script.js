@@ -15,13 +15,14 @@ async function searchCountry(countryName) {
 
     try {
         const response = await fetch(`https://restcountries.com/v3.1/name/${countryName}?fullText=true`);
-        
 
-        if (!response.ok) throw new Error('Country not found');
+        if (!response.ok) {
+            throw new Error('Country not found');
+        }
 
         const [country] = await response.json();
 
-        // 1. Update main country info
+        // Update main country info
         countryInfo.innerHTML = `
             <h2>${country.name.common}</h2>
             <p><strong>Capital:</strong> ${country.capital ? country.capital[0] : 'N/A'}</p>
@@ -30,12 +31,17 @@ async function searchCountry(countryName) {
             <img src="${country.flags.svg}" alt="${country.name.common} flag">
         `;
 
-        // 2. Handle Borders
+        // Handle Borders
         if (country.borders && country.borders.length > 0) {
             borderingCountries.innerHTML = '<h3>Bordering Countries:</h3>';
-            
+
             const borderCodes = country.borders.join(',');
             const borderRes = await fetch(`https://restcountries.com/v3.1/alpha?codes=${borderCodes}`);
+
+            if (!borderRes.ok) {
+                throw new Error('Error fetching bordering countries');
+            }
+
             const borderData = await borderRes.json();
 
             borderData.forEach(border => {
@@ -59,12 +65,16 @@ async function searchCountry(countryName) {
 
 searchBtn.addEventListener('click', () => {
     const name = countryInput.value.trim();
-    if (name) searchCountry(name);
+    if (name) {
+        searchCountry(name);
+    }
 });
 
 countryInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         const name = countryInput.value.trim();
-        if (name) searchCountry(name);
+        if (name) {
+            searchCountry(name);
+        }
     }
 });
