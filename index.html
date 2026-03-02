@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Country Explorer</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Country Explorer</h1>
+    </header>
+
+    <main>
+        <div class="search-container">
+            <input type="text" id="country-input" placeholder="Enter country name...">
+            <button id="search-btn">Search</button>
+        </div>
+
+        <div id="loading-spinner" class="spinner"></div>
+
+        <section id="country-info" class="country-card">
+            <!-- Country info will be populated here -->
+        </section>
+
+        <section id="bordering-countries" class="border-grid">
+            <!-- Bordering countries will be populated here -->
+        </section>
+
+        <div id="error-message" class="error"></div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
