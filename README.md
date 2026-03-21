@@ -12,7 +12,7 @@
   - Languages
   - Currencies
   - Country code
-- **Bordering Countries**: Displays neighboring countries with their flags (if any).
+- **Bordering Countries**: Displays neighboring countries with their flags.
 - **All Countries Button**: Quickly list all available countries for browsing.
 - **Responsive Design**: Works well on desktop and mobile devices.
 - **Interactive UI**: Hover effects, smooth transitions, and subtle animations enhance the user experience.
