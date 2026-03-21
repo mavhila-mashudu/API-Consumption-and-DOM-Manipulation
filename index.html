@@ -4,30 +4,49 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Country Explorer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <header>
-        <h1>Country Explorer</h1>
-    </header>
+    <main class="app-shell">
+        <section class="hero-panel">
+            <h1>Country Explorer</h1>
+            <p class="subtitle">Search for a country to view its details, discover its neighbors, or browse the full collection.</p>
 
-    <main>
-        <div class="search-container">
-            <input type="text" id="country-input" placeholder="Enter country name...">
-            <button id="search-btn">Search</button>
-        </div>
-
-        <div id="loading-spinner" class="spinner"></div>
-
-        <section id="country-info" class="country-card">
-            <!-- Country info will be populated here -->
+            <div class="search-panel">
+                <label class="sr-only" for="country-input">Country name</label>
+                <input type="text" id="country-input" placeholder="Search by country name">
+                <div class="action-group">
+                    <button id="search-btn" class="primary-btn" type="button">Search</button>
+                    <button id="toggle-all-btn" class="secondary-btn" type="button">Show All Countries</button>
+                </div>
+            </div>
         </section>
 
-        <section id="bordering-countries" class="border-grid">
-            <!-- Bordering countries will be populated here -->
+        <div id="loading-spinner" class="spinner hidden" aria-hidden="true"></div>
+        <p id="error-message" class="error hidden" role="alert"></p>
+
+        <section id="country-info" class="country-card empty-state">
+            <p>Search for a country to see its details here.</p>
         </section>
 
-        <div id="error-message" class="error"></div>
+        <section id="border-panel" class="panel hidden">
+            <div class="section-heading">
+                <h2>Bordering Countries</h2>
+                <p>Countries that share a border with your current selection.</p>
+            </div>
+            <div id="bordering-countries" class="border-grid"></div>
+        </section>
+
+        <section id="all-countries-section" class="panel hidden">
+            <div class="section-heading">
+                <h2>All Countries</h2>
+                <p>Browse the full list and click any country to load its details.</p>
+            </div>
+            <div id="all-countries-grid" class="country-grid"></div>
+        </section>
     </main>
 
     <script src="script.js"></script>
