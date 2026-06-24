@@ -214,6 +214,7 @@ async function toggleAllCountries() {
                 "/api/all",
                 "Unable to load countries right now."
             );
+            console.log("API RESPONSE:", countries);
 
             allCountriesCache = countries.sort((first, second) => first.name.common.localeCompare(second.name.common));
         }
