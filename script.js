@@ -165,7 +165,7 @@ async function searchCountry(countryName) {
 
     try {
         const countries = await fetchJson(
-            `https://restcountries.com/v3.1/name/${encodeURIComponent(trimmedName)}?fields=${countryFields}`,
+            `/api/country?name=${encodeURIComponent(trimmedName)}`,
             "Country not found."
         );
 
@@ -211,7 +211,7 @@ async function toggleAllCountries() {
     try {
         if (!allCountriesCache.length) {
             const countries = await fetchJson(
-                "https://restcountries.com/v3.1/all?fields=name,flags,region,population",
+                "/api/all",
                 "Unable to load countries right now."
             );
 
