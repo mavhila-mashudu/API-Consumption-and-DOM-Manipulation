@@ -136,6 +136,7 @@ async function renderBorderCountries(borderCodes = []) {
     }
 
     try {
+        // Note: This still hits v3.1 directly. Once you create an /api/border.js file, update this URL to match your backend!
         const borderData = await fetchJson(
             `https://restcountries.com/v3.1/alpha?codes=${borderCodes.join(",")}&fields=name,flags,region,population`,
             "Unable to fetch bordering countries."
@@ -164,10 +165,13 @@ async function searchCountry(countryName) {
     setLoading(true);
 
     try {
-        const countries = await fetchJson(
+        const responsePayload = await fetchJson(
             `/api/country?name=${encodeURIComponent(trimmedName)}`,
             "Country not found."
         );
+
+        // Extracts the array from the v5 "data" wrapper
+        const countries = responsePayload.data || responsePayload;
 
         const normalizedName = trimmedName.toLowerCase();
         const selectedCountry = countries.find((country) => {
@@ -210,10 +214,13 @@ async function toggleAllCountries() {
 
     try {
         if (!allCountriesCache.length) {
-            const countries = await fetchJson(
+            const responsePayload = await fetchJson(
                 "/api/all",
                 "Unable to load countries right now."
             );
+            
+            // Extracts the array from the v5 "data" wrapper
+            const countries = responsePayload.data || responsePayload;
             console.log("API RESPONSE:", countries);
 
             allCountriesCache = countries.sort((first, second) => first.name.common.localeCompare(second.name.common));
