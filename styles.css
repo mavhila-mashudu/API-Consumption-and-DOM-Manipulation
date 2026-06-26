@@ -30,35 +30,7 @@ body {
     padding: 32px 20px 48px;
     font-family: "Manrope", "Segoe UI", sans-serif;
     color: var(--text-main);
-    background:
-        radial-gradient(circle at 20% 15%, rgba(246, 189, 96, 0.26), transparent 24%),
-        radial-gradient(circle at 82% 18%, rgba(125, 211, 252, 0.26), transparent 22%),
-        linear-gradient(145deg, var(--bg-deep), var(--bg-mid) 52%, var(--bg-soft));
-}
-
-body::before,
-body::after {
-    content: "";
-    position: fixed;
-    inset: auto;
-    width: 280px;
-    height: 280px;
-    border-radius: 50%;
-    filter: blur(26px);
-    opacity: 0.4;
-    pointer-events: none;
-}
-
-body::before {
-    top: 10%;
-    left: -80px;
-    background: rgba(246, 189, 96, 0.28);
-}
-
-body::after {
-    right: -90px;
-    bottom: 8%;
-    background: rgba(56, 189, 248, 0.25);
+    background-color: var(--bg-deep);
 }
 
 .app-shell {
@@ -184,9 +156,10 @@ button:disabled {
 
 .primary-btn {
     min-width: 150px;
-    color: #062236;
-    background: linear-gradient(135deg, #f8d67f, #7dd3fc);
-    box-shadow: 0 14px 28px rgba(125, 211, 252, 0.22);
+    color: var(--text-main); /* Matches the 'Show All' text color */
+    background: rgba(255, 255, 255, 0.1); /* Matches the 'Show All' background */
+    border: 1px solid var(--accent); /* Adds the light blue border */
+    box-shadow: 0 8px 24px rgba(125, 211, 252, 0.15); /* Adds a subtle blue glow */
 }
 
 .secondary-btn {
