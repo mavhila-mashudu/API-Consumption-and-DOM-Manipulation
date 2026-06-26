@@ -36,17 +36,33 @@ function formatList(values) {
 }
 
 // --------------------------------------------------------
-// SAFE EXTRACTION HELPERS (Handles both v3 and v5 APIs)
+// SAFE EXTRACTION HELPERS (Tailored for v5 JSON structure)
 // --------------------------------------------------------
 
 function getCountryName(country) {
-    return country.name?.common || country.names?.common || "Unknown Name";
+    // Looks exactly where your JSON showed us: names.common
+    return country.names?.common || country.name?.common || "Unknown Name";
 }
 
 function getCountryFlag(country) {
-    if (typeof country.flags === 'string') return country.flags;
-    if (typeof country.flag === 'string') return country.flag;
-    return country.flag?.svg || country.flag?.image || country.flags?.svg || country.flags?.png || country.assets?.flag || "";
+    // Looks exactly where your JSON showed us: flag.url_svg
+    return country.flag?.url_svg || country.flag?.url_png || country.flags?.svg || "";
+}
+
+function getCountryCode(country) {
+    // Looks exactly where your JSON showed us: codes.alpha_3
+    return country.codes?.alpha_3 || country.cca3 || "";
+}
+
+// Helper to safely extract names from arrays of objects (like v5 languages/currencies)
+function extractNames(arr) {
+    if (!Array.isArray(arr)) {
+        if (typeof arr === 'object' && arr !== null) {
+            return Object.values(arr).map(item => typeof item === 'object' ? item.name : item);
+        }
+        return [];
+    }
+    return arr.map(item => typeof item === 'object' ? item.name : item).filter(Boolean);
 }
 
 async function fetchJson(url, fallbackMessage) {
@@ -55,15 +71,11 @@ async function fetchJson(url, fallbackMessage) {
     return response.json();
 }
 
-// Centralized cache fetcher: we hit the backend once and reuse the data
+// Centralized cache fetcher
 async function getAllCountriesData() {
     if (allCountriesCache.length) return allCountriesCache;
     
     const responsePayload = await fetchJson("/api/all", "Unable to load countries right now.");
-    
-    //  DEBUG LOG 1: See exactly what the /api/all endpoint returns
-    console.log(" DEBUG [getAllCountriesData]: Raw API Response ->", responsePayload);
-
     const countries = responsePayload?.data?.objects || responsePayload?.data || responsePayload;
 
     if (!Array.isArray(countries)) {
@@ -84,37 +96,14 @@ async function getAllCountriesData() {
 // --------------------------------------------------------
 
 function renderCountryDetails(country) {
-    let capArray = [];
-    if (Array.isArray(country.capitals)) {
-        capArray = country.capitals.map(c => typeof c === 'object' ? (c.name || "") : c);
-    } else if (Array.isArray(country.capital)) {
-        capArray = country.capital.map(c => typeof c === 'object' ? (c.name || "") : c);
-    } else if (typeof country.capital === 'string') {
-        capArray = [country.capital];
-    }
-    const capital = formatList(capArray.filter(Boolean));
-
-    let langArray = [];
-    if (Array.isArray(country.languages)) {
-        langArray = country.languages.map(l => typeof l === 'object' ? (l.name || "") : l);
-    } else if (country.languages && typeof country.languages === 'object') {
-        langArray = Object.values(country.languages).map(l => typeof l === 'object' ? (l.name || l) : l);
-    }
-    const languages = formatList(langArray.filter(Boolean));
-
-    let currArray = [];
-    if (Array.isArray(country.currencies)) {
-        currArray = country.currencies.map(c => typeof c === 'object' ? (c.name || "") : c);
-    } else if (country.currencies && typeof country.currencies === 'object') {
-        currArray = Object.values(country.currencies).map(c => typeof c === 'object' ? (c.name || c) : c);
-    }
-    const currencies = formatList(currArray.filter(Boolean));
+    const capital = formatList(extractNames(country.capitals || country.capital));
+    const languages = formatList(extractNames(country.languages));
+    const currencies = formatList(extractNames(country.currencies));
 
     const locationLabel = country.subregion || country.region || "its part of the world";
     const countryName = getCountryName(country);
     const flagUrl = getCountryFlag(country);
-    
-    const countryCode = country.codes?.alpha_3 || country.cca3 || "N/A";
+    const countryCode = getCountryCode(country) || "N/A";
 
     countryInfo.className = "country-card";
     countryInfo.innerHTML = `
@@ -175,6 +164,7 @@ function createCountryButton(country, className) {
     button.addEventListener("click", () => {
         countryInput.value = name;
         searchCountry(name);
+        window.scrollTo({ top: 0, behavior: 'smooth' }); // Bonus: Scrolls up when clicked!
     });
     return button;
 }
@@ -196,13 +186,9 @@ async function renderBorderCountries(borderCodes = []) {
         const allCountries = await getAllCountriesData();
 
         const borderData = allCountries.filter(c => {
-            const code = c.codes?.alpha_3 || c.cca3;
+            const code = getCountryCode(c);
             return borderCodes.includes(code);
         });
-
-        //  DEBUG LOG 2: A clean table view of the bordering countries array!
-        console.log(" DEBUG [renderBorderCountries]: Bordering Countries Array ->");
-        console.table(borderData);
 
         if (!borderData.length) {
             borderingCountries.innerHTML = '<div class="empty-block">No specific border details found.</div>';
@@ -235,9 +221,6 @@ async function searchCountry(countryName) {
             "Country not found."
         );
 
-        //  DEBUG LOG 3: See exactly what the /api/country endpoint returns
-        console.log(` DEBUG [searchCountry - ${trimmedName}]: Raw API Response ->`, responsePayload);
-
         const countries = responsePayload?.data?.objects || responsePayload?.data || responsePayload;
 
         if (!Array.isArray(countries)) {
@@ -246,8 +229,8 @@ async function searchCountry(countryName) {
 
         const normalizedName = trimmedName.toLowerCase();
         const selectedCountry = countries.find((country) => {
-            const commonName = country.name?.common || country.names?.common || "";
-            const officialName = country.name?.official || country.names?.official || "";
+            const commonName = country.names?.common || country.name?.common || "";
+            const officialName = country.names?.official || country.name?.official || "";
             
             return [commonName, officialName]
                 .filter(Boolean)
