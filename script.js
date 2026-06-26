@@ -9,19 +9,6 @@ const allCountriesGrid = document.getElementById("all-countries-grid");
 const errorMessage = document.getElementById("error-message");
 const spinner = document.getElementById("loading-spinner");
 
-const countryFields = [
-    "name",
-    "capital",
-    "population",
-    "region",
-    "subregion",
-    "languages",
-    "currencies",
-    "flags",
-    "borders",
-    "cca3"
-].join(",");
-
 let allCountriesCache = [];
 
 function setLoading(isLoading) {
@@ -48,16 +35,86 @@ function formatList(values) {
     return values && values.length ? values.join(", ") : "N/A";
 }
 
-function renderCountryDetails(country) {
-    const capital = formatList(country.capital);
-    const languages = formatList(country.languages ? Object.values(country.languages) : []);
-    const currencies = formatList(
-        country.currencies ? Object.values(country.currencies).map((currency) => currency.name) : []
-    );
-    const locationLabel = country.subregion || country.region || "its part of the world";
+// --------------------------------------------------------
+// SAFE EXTRACTION HELPERS (Handles both v3 and v5 APIs)
+// --------------------------------------------------------
+
+function getCountryName(country) {
+    return country.name?.common || country.names?.common || "Unknown Name";
+}
+
+function getCountryFlag(country) {
+    if (typeof country.flags === 'string') return country.flags;
+    if (typeof country.flag === 'string') return country.flag;
+    return country.flag?.svg || country.flag?.image || country.flags?.svg || country.flags?.png || country.assets?.flag || "";
+}
+
+async function fetchJson(url, fallbackMessage) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(fallbackMessage);
+    return response.json();
+}
+
+// Centralized cache fetcher: we hit the backend once and reuse the data
+async function getAllCountriesData() {
+    if (allCountriesCache.length) return allCountriesCache;
     
-    // Safely handles both v3 (name.common) and v5 (names.common) API structures
-    const countryName = country.name?.common || country.names?.common || "Unknown Name";
+    const responsePayload = await fetchJson("/api/all", "Unable to load countries right now.");
+    
+    //  DEBUG LOG 1: See exactly what the /api/all endpoint returns
+    console.log(" DEBUG [getAllCountriesData]: Raw API Response ->", responsePayload);
+
+    const countries = responsePayload?.data?.objects || responsePayload?.data || responsePayload;
+
+    if (!Array.isArray(countries)) {
+        throw new Error("API did not return a valid list of countries.");
+    }
+
+    allCountriesCache = countries.sort((first, second) => {
+        const firstName = getCountryName(first);
+        const secondName = getCountryName(second);
+        return firstName.localeCompare(secondName);
+    });
+
+    return allCountriesCache;
+}
+
+// --------------------------------------------------------
+// RENDERING FUNCTIONS
+// --------------------------------------------------------
+
+function renderCountryDetails(country) {
+    let capArray = [];
+    if (Array.isArray(country.capitals)) {
+        capArray = country.capitals.map(c => typeof c === 'object' ? (c.name || "") : c);
+    } else if (Array.isArray(country.capital)) {
+        capArray = country.capital.map(c => typeof c === 'object' ? (c.name || "") : c);
+    } else if (typeof country.capital === 'string') {
+        capArray = [country.capital];
+    }
+    const capital = formatList(capArray.filter(Boolean));
+
+    let langArray = [];
+    if (Array.isArray(country.languages)) {
+        langArray = country.languages.map(l => typeof l === 'object' ? (l.name || "") : l);
+    } else if (country.languages && typeof country.languages === 'object') {
+        langArray = Object.values(country.languages).map(l => typeof l === 'object' ? (l.name || l) : l);
+    }
+    const languages = formatList(langArray.filter(Boolean));
+
+    let currArray = [];
+    if (Array.isArray(country.currencies)) {
+        currArray = country.currencies.map(c => typeof c === 'object' ? (c.name || "") : c);
+    } else if (country.currencies && typeof country.currencies === 'object') {
+        currArray = Object.values(country.currencies).map(c => typeof c === 'object' ? (c.name || c) : c);
+    }
+    const currencies = formatList(currArray.filter(Boolean));
+
+    const locationLabel = country.subregion || country.region || "its part of the world";
+    const countryName = getCountryName(country);
+    const flagUrl = getCountryFlag(country);
+    
+    const countryCode = country.codes?.alpha_3 || country.cca3 || "N/A";
 
     countryInfo.className = "country-card";
     countryInfo.innerHTML = `
@@ -91,12 +148,12 @@ function renderCountryDetails(country) {
                     </div>
                     <div class="stat-card">
                         <span class="stat-label">Country Code</span>
-                        <span class="stat-value">${country.cca3 || "N/A"}</span>
+                        <span class="stat-value">${countryCode}</span>
                     </div>
                 </div>
             </div>
             <div class="country-visual">
-                <img class="country-flag" src="${country.flags?.svg || ""}" alt="${countryName} flag">
+                <img class="country-flag" src="${flagUrl}" alt="${countryName} flag">
             </div>
         </div>
     `;
@@ -104,12 +161,13 @@ function renderCountryDetails(country) {
 
 function createCountryButton(country, className) {
     const button = document.createElement("button");
-    const name = country.name?.common || country.names?.common || "Unknown";
+    const name = getCountryName(country);
+    const flagUrl = getCountryFlag(country);
     
     button.type = "button";
     button.className = className;
     button.innerHTML = `
-        <img src="${country.flags?.svg || ""}" alt="${name} flag">
+        <img src="${flagUrl}" alt="${name} flag">
         <strong>${name}</strong>
         <span>${country.region || "Region unavailable"}</span>
         <span>Population: ${formatPopulation(country.population)}</span>
@@ -121,15 +179,9 @@ function createCountryButton(country, className) {
     return button;
 }
 
-async function fetchJson(url, fallbackMessage) {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-        throw new Error(fallbackMessage);
-    }
-
-    return response.json();
-}
+// --------------------------------------------------------
+// CORE LOGIC FUNCTIONS
+// --------------------------------------------------------
 
 async function renderBorderCountries(borderCodes = []) {
     borderingCountries.innerHTML = "";
@@ -141,17 +193,25 @@ async function renderBorderCountries(borderCodes = []) {
     }
 
     try {
-        // Note: This still hits v3.1 directly. Once you create an /api/borders backend file, update this URL to match!
-        const borderData = await fetchJson(
-            `https://restcountries.com/v3.1/alpha?codes=${borderCodes.join(",")}&fields=name,flags,region,population`,
-            "Unable to fetch bordering countries."
-        );
+        const allCountries = await getAllCountriesData();
 
-        borderData
-            .sort((first, second) => first.name.common.localeCompare(second.name.common))
-            .forEach((borderCountry) => {
-                borderingCountries.appendChild(createCountryButton(borderCountry, "country-link"));
-            });
+        const borderData = allCountries.filter(c => {
+            const code = c.codes?.alpha_3 || c.cca3;
+            return borderCodes.includes(code);
+        });
+
+        //  DEBUG LOG 2: A clean table view of the bordering countries array!
+        console.log(" DEBUG [renderBorderCountries]: Bordering Countries Array ->");
+        console.table(borderData);
+
+        if (!borderData.length) {
+            borderingCountries.innerHTML = '<div class="empty-block">No specific border details found.</div>';
+            return;
+        }
+
+        borderData.forEach((borderCountry) => {
+            borderingCountries.appendChild(createCountryButton(borderCountry, "country-link"));
+        });
     } catch (error) {
         borderingCountries.innerHTML = '<div class="empty-block">Bordering countries could not be loaded right now.</div>';
         showError(`Error: ${error.message}`);
@@ -175,7 +235,9 @@ async function searchCountry(countryName) {
             "Country not found."
         );
 
-        // Extract the array, checking multiple possible locations for the v5 API structure
+        //  DEBUG LOG 3: See exactly what the /api/country endpoint returns
+        console.log(` DEBUG [searchCountry - ${trimmedName}]: Raw API Response ->`, responsePayload);
+
         const countries = responsePayload?.data?.objects || responsePayload?.data || responsePayload;
 
         if (!Array.isArray(countries)) {
@@ -184,8 +246,8 @@ async function searchCountry(countryName) {
 
         const normalizedName = trimmedName.toLowerCase();
         const selectedCountry = countries.find((country) => {
-            const commonName = country.name?.common || country.names?.common;
-            const officialName = country.name?.official || country.names?.official;
+            const commonName = country.name?.common || country.names?.common || "";
+            const officialName = country.name?.official || country.names?.official || "";
             
             return [commonName, officialName]
                 .filter(Boolean)
@@ -206,7 +268,6 @@ async function searchCountry(countryName) {
 
 function renderAllCountries(countries) {
     allCountriesGrid.innerHTML = "";
-
     countries.forEach((country) => {
         allCountriesGrid.appendChild(createCountryButton(country, "country-tile"));
     });
@@ -225,30 +286,8 @@ async function toggleAllCountries() {
     setLoading(true);
 
     try {
-        if (!allCountriesCache.length) {
-            const responsePayload = await fetchJson(
-                "/api/all",
-                "Unable to load countries right now."
-            );
-            
-            // Extract the array, checking multiple possible locations for the v5 API structure
-            const countries = responsePayload?.data?.objects || responsePayload?.data || responsePayload;
-
-            if (!Array.isArray(countries)) {
-                throw new Error("API did not return a valid list of countries.");
-            }
-
-            console.log("API RESPONSE:", countries);
-
-            // Sort safely by checking for both v3 and v5 name formats
-            allCountriesCache = countries.sort((first, second) => {
-                const firstName = first.name?.common || first.names?.common || "";
-                const secondName = second.name?.common || second.names?.common || "";
-                return firstName.localeCompare(secondName);
-            });
-        }
-
-        renderAllCountries(allCountriesCache);
+        const countries = await getAllCountriesData();
+        renderAllCountries(countries);
         allCountriesSection.classList.remove("hidden");
         toggleAllBtn.textContent = "Hide All Countries";
     } catch (error) {
@@ -257,6 +296,10 @@ async function toggleAllCountries() {
         setLoading(false);
     }
 }
+
+// --------------------------------------------------------
+// EVENT LISTENERS
+// --------------------------------------------------------
 
 searchBtn.addEventListener("click", () => {
     searchCountry(countryInput.value);
