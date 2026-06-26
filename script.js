@@ -55,15 +55,18 @@ function renderCountryDetails(country) {
         country.currencies ? Object.values(country.currencies).map((currency) => currency.name) : []
     );
     const locationLabel = country.subregion || country.region || "its part of the world";
+    
+    // Safely handles both v3 (name.common) and v5 (names.common) API structures
+    const countryName = country.name?.common || country.names?.common || "Unknown Name";
 
     countryInfo.className = "country-card";
     countryInfo.innerHTML = `
         <div class="country-layout">
             <div class="country-copy">
                 <span class="country-chip">${country.region || "Unknown Region"}</span>
-                <h2>${country.name.common}</h2>
+                <h2>${countryName}</h2>
                 <p class="country-summary">
-                    ${country.name.common} is located in ${locationLabel}, with ${formatPopulation(country.population)} people and a capital city of ${capital}.
+                    ${countryName} is located in ${locationLabel}, with ${formatPopulation(country.population)} people and a capital city of ${capital}.
                 </p>
                 <div class="stat-grid">
                     <div class="stat-card">
@@ -93,7 +96,7 @@ function renderCountryDetails(country) {
                 </div>
             </div>
             <div class="country-visual">
-                <img class="country-flag" src="${country.flags.svg}" alt="${country.name.common} flag">
+                <img class="country-flag" src="${country.flags?.svg || ""}" alt="${countryName} flag">
             </div>
         </div>
     `;
@@ -101,17 +104,19 @@ function renderCountryDetails(country) {
 
 function createCountryButton(country, className) {
     const button = document.createElement("button");
+    const name = country.name?.common || country.names?.common || "Unknown";
+    
     button.type = "button";
     button.className = className;
     button.innerHTML = `
-        <img src="${country.flags.svg}" alt="${country.name.common} flag">
-        <strong>${country.name.common}</strong>
+        <img src="${country.flags?.svg || ""}" alt="${name} flag">
+        <strong>${name}</strong>
         <span>${country.region || "Region unavailable"}</span>
         <span>Population: ${formatPopulation(country.population)}</span>
     `;
     button.addEventListener("click", () => {
-        countryInput.value = country.name.common;
-        searchCountry(country.name.common);
+        countryInput.value = name;
+        searchCountry(name);
     });
     return button;
 }
@@ -136,7 +141,7 @@ async function renderBorderCountries(borderCodes = []) {
     }
 
     try {
-        // Note: This still hits v3.1 directly. Once you create an /api/border.js file, update this URL to match your backend!
+        // Note: This still hits v3.1 directly. Once you create an /api/borders backend file, update this URL to match!
         const borderData = await fetchJson(
             `https://restcountries.com/v3.1/alpha?codes=${borderCodes.join(",")}&fields=name,flags,region,population`,
             "Unable to fetch bordering countries."
@@ -170,14 +175,21 @@ async function searchCountry(countryName) {
             "Country not found."
         );
 
-        // Extracts the array from the v5 "data" wrapper
-        const countries = responsePayload.data || responsePayload;
+        // Extract the array, checking multiple possible locations for the v5 API structure
+        const countries = responsePayload?.data?.objects || responsePayload?.data || responsePayload;
+
+        if (!Array.isArray(countries)) {
+            throw new Error("API did not return a valid list of countries.");
+        }
 
         const normalizedName = trimmedName.toLowerCase();
         const selectedCountry = countries.find((country) => {
-            return [country.name.common, country.name.official]
+            const commonName = country.name?.common || country.names?.common;
+            const officialName = country.name?.official || country.names?.official;
+            
+            return [commonName, officialName]
                 .filter(Boolean)
-                .some((name) => name.toLowerCase() === normalizedName);
+                .some((n) => n.toLowerCase() === normalizedName);
         }) || countries[0];
 
         renderCountryDetails(selectedCountry);
@@ -219,11 +231,21 @@ async function toggleAllCountries() {
                 "Unable to load countries right now."
             );
             
-            // Extracts the array from the v5 "data" wrapper
-            const countries = responsePayload.data || responsePayload;
+            // Extract the array, checking multiple possible locations for the v5 API structure
+            const countries = responsePayload?.data?.objects || responsePayload?.data || responsePayload;
+
+            if (!Array.isArray(countries)) {
+                throw new Error("API did not return a valid list of countries.");
+            }
+
             console.log("API RESPONSE:", countries);
 
-            allCountriesCache = countries.sort((first, second) => first.name.common.localeCompare(second.name.common));
+            // Sort safely by checking for both v3 and v5 name formats
+            allCountriesCache = countries.sort((first, second) => {
+                const firstName = first.name?.common || first.names?.common || "";
+                const secondName = second.name?.common || second.names?.common || "";
+                return firstName.localeCompare(secondName);
+            });
         }
 
         renderAllCountries(allCountriesCache);
